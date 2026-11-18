@@ -1,0 +1,23 @@
+{
+  "name": "mediqueue",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MediQueue - local multi-hospital appointment and queue management (ADSA project)",
+  "scripts": {
+    "setup": "npm --prefix server install && npm --prefix client install && npm run setup:env && npm run db:setup",
+    "setup:env": "node scripts/setup-env.js",
+    "db:setup": "npm --prefix server run db:deploy && npm --prefix server run db:generate && npm --prefix server run db:seed",
+    "db:migrate": "npm --prefix server run db:migrate",
+    "db:deploy": "npm --prefix server run db:deploy",
+    "db:generate": "npm --prefix server run db:generate",
+    "db:seed": "npm --prefix server run db:seed",
+    "db:reset": "npm --prefix server run db:reset",
+    "db:studio": "npm --prefix server run db:studio",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "test": "npm --prefix server test",
+    "test:api": "npm --prefix server run test:api",
+    "build": "npm --prefix client run build"
+  }
+}

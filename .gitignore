@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Local environment (contains JWT secret and demo password)
+server/.env
+.env
+.env.local
+
+# SQLite database files
+server/prisma/*.db
+server/prisma/*.db-journal
+server/prisma/*.db-wal
+server/prisma/*.db-shm
+server/prisma/test.db*
+server/prisma/test-*.db*
+
+# Build output
+client/dist/
+dist/
+
+# Logs and editor files
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

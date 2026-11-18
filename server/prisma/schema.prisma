@@ -1,0 +1,220 @@
+// MediQueue database schema
+// SQLite + Prisma. Dates/times are stored as local strings to avoid timezone bugs.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  HOSPITAL_ADMIN
+  PLATFORM_ADMIN
+}
+
+enum AppointmentStatus {
+  BOOKED
+  CHECKED_IN
+  CALLED
+  IN_CONSULTATION
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum QueueStatus {
+  WAITING
+  CALLED
+  IN_CONSULTATION
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
+enum NotificationType {
+  APPOINTMENT
+  QUEUE
+  DELAY
+  EMERGENCY
+  SYSTEM
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  role         Role
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  patient              Patient?
+  doctor               Doctor?
+  administeredHospital Hospital?      @relation("HospitalAdministrator")
+  notifications        Notification[]
+
+  @@index([role])
+}
+
+model Patient {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  dateOfBirth String?
+  gender      String?
+  bloodGroup  String?
+  createdAt   DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  queueEntries QueueEntry[]
+}
+
+model Hospital {
+  id          String   @id @default(cuid())
+  name        String
+  address     String
+  city        String
+  phone       String
+  email       String?
+  description String?
+  adminId     String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  admin   User?    @relation("HospitalAdministrator", fields: [adminId], references: [id], onDelete: SetNull)
+  doctors Doctor[]
+
+  @@index([city])
+}
+
+model Doctor {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  hospitalId             String
+  specialization         String
+  qualification          String?
+  experienceYears        Int?
+  avgConsultationMinutes Int      @default(15)
+  roomNumber             String?
+  bio                    String?
+  isActive               Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hospital     Hospital         @relation(fields: [hospitalId], references: [id], onDelete: Restrict)
+  schedules    DoctorSchedule[]
+  appointments Appointment[]
+  queueEntries QueueEntry[]
+  delayReports DelayReport[]
+
+  @@index([hospitalId])
+  @@index([specialization])
+}
+
+model DoctorSchedule {
+  id                  String   @id @default(cuid())
+  doctorId            String
+  dayOfWeek           Int
+  startTime           String
+  endTime             String
+  slotDurationMinutes Int      @default(15)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, dayOfWeek, startTime])
+  @@index([doctorId])
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  patientId   String
+  doctorId    String
+  date        String
+  slotTime    String?
+  slotKey     String?           @unique
+  status      AppointmentStatus @default(BOOKED)
+  isEmergency Boolean           @default(false)
+  reason      String?
+  bookedAt    DateTime          @default(now())
+  checkedInAt DateTime?
+  calledAt    DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+  noShowAt    DateTime?
+  updatedAt   DateTime          @updatedAt
+
+  patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor     Doctor      @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  queueEntry QueueEntry?
+
+  @@index([doctorId, date])
+  @@index([patientId, date])
+  @@index([date, status])
+  @@index([status])
+}
+
+model QueueEntry {
+  id            String      @id @default(cuid())
+  doctorId      String
+  patientId     String
+  appointmentId String      @unique
+  queueDate     String
+  tokenNumber   Int
+  priority      Int         @default(1)
+  status        QueueStatus @default(WAITING)
+  checkedInAt   DateTime    @default(now())
+  calledAt      DateTime?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  noShowAt      DateTime?
+  cancelledAt   DateTime?
+
+  doctor      Doctor      @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, queueDate, tokenNumber])
+  @@index([doctorId, queueDate, status])
+  @@index([patientId, queueDate])
+}
+
+model DelayReport {
+  id           String   @id @default(cuid())
+  doctorId     String
+  date         String
+  delayMinutes Int
+  reason       String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  resolvedAt   DateTime?
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, date, isActive])
+}
+
+model Notification {
+  id            String           @id @default(cuid())
+  userId        String
+  title         String
+  message       String
+  type          NotificationType @default(SYSTEM)
+  isRead        Boolean          @default(false)
+  appointmentId String?
+  createdAt     DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
